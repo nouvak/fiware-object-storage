@@ -20,10 +20,10 @@ currentAuthToken = null
 currentFullAuthToken = null
 currentTenant = null
 
-auth = null 
+auth = null
 url = null
-user = null 
-password = null 
+user = null
+password = null
 container = null
 
 chalk.enabled = yes
@@ -67,8 +67,12 @@ getFile = (name)->
       else
         debugLog "Got File Contents #{name} from #{container}."
         parsedBody = qs.parse(body.toString())
+        if parsedBody.meta != null
+          meta = JSON.parse parsedBody.meta
+        else
+          meta = null
         deferred.resolve
-          meta : JSON.parse parsedBody.meta
+          meta : meta
           mimetype: parsedBody.mimetype
           value : parsedBody.value
   return deferred.promise
@@ -135,6 +139,28 @@ getFileList =()->
         debugLog(" - "+item,"success") for item in parsedListData.list
         if parsedListData.list.length is 0
           debugLog "No Files in this Container", "info"
+  return deferred.promise
+
+
+deleteFile = (name)->
+  deferred = q.defer()
+  unless currentFullAuthToken
+    deferred.reject "No Auth Token available"
+    return debugErr "No Auth Token available"
+  else
+    debugLog "Deleting File #{name} from #{container}."
+    needle.delete "http://#{url}:8080/ctm/AUTH_#{currentTenant}/#{container}/#{name}",
+      headers :
+        "x-auth-token" : currentFullAuthToken
+        "x-cdmi-specification-version" : "1.0.1"
+    , (err, deleteResponse)->
+      if err
+        deferred.reject err
+        debugErr "Error deleting file #{name} from #{container}. "+err
+      else
+        deferred.resolve deleteResponse?.body
+        debugSuccess "Deleted file #{name} from #{container}."
+
   return deferred.promise
 
 
@@ -211,3 +237,4 @@ module.exports = (config)->
   getFileList : getFileList
   putFile : putFile
   getFile : getFile
+  deleteFile : deleteFile
